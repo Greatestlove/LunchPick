@@ -178,7 +178,7 @@ runTests();
 
 export default function LunchPickApp() {
   // 각 필터의 현재 선택 상태입니다.
-  const [category, setCategory] = useState("전체");
+  const [selectedCategories, setSelectedCategories] = useState([]);
   const [price, setPrice] = useState("상관없음");
 
   // 사용자가 제외한 메뉴명 목록입니다. 추천 후보에서 제외됩니다.
@@ -197,11 +197,24 @@ export default function LunchPickApp() {
     // 필터 값이 바뀔 때만 다시 계산하게 useMemo로 감쌉니다.
     return MENUS.filter((menu) => {
       if (excluded.includes(menu.name)) return false;
-      if (category !== "전체" && menu.category !== category) return false;
+      if (selectedCategories.length && !selectedCategories.includes(menu.category)) return false;
       if (price !== "상관없음" && menu.price !== price) return false;
       return true;
     });
-  }, [category, price, excluded]);
+  }, [selectedCategories, price, excluded]);
+
+  const toggleCategory = (nextCategory) => {
+    if (nextCategory === "전체") {
+      setSelectedCategories([]);
+      return;
+    }
+
+    setSelectedCategories((previous) =>
+      previous.includes(nextCategory)
+        ? previous.filter((item) => item !== nextCategory)
+        : [...previous, nextCategory]
+    );
+  };
 
   const recommend = () => {
     const picked = weightedPick(filteredMenus, recent);
@@ -252,7 +265,7 @@ export default function LunchPickApp() {
 
   const resetFilters = () => {
     // 필터, 제외 목록, 현재 결과를 모두 초기 상태로 돌립니다.
-    setCategory("전체");
+    setSelectedCategories([]);
     setPrice("상관없음");
     setExcluded([]);
     setResult(null);
@@ -297,8 +310,8 @@ export default function LunchPickApp() {
           </section>
 
           <FilterSection
-            category={category}
-            setCategory={setCategory}
+            selectedCategories={selectedCategories}
+            toggleCategory={toggleCategory}
             price={price}
             setPrice={setPrice}
             count={filteredMenus.length}
@@ -427,26 +440,30 @@ function Header() {
   );
 }
 
-function FilterSection({ category, setCategory, price, setPrice, count }) {
+function FilterSection({ selectedCategories, toggleCategory, price, setPrice, count }) {
   return (
     <section className="mt-5 rounded-[2rem] border border-gray-200 bg-gray-50 p-4">
       <div className="mb-4 flex items-center justify-between">
         <h2 className="font-bold text-gray-950">조건 고르기</h2>
         <span className="rounded-full bg-white px-3 py-1 text-xs text-gray-600 shadow-sm">후보 {count}개</span>
       </div>
-      <FilterRow title="종류" options={CATEGORIES} value={category} onChange={setCategory} />
+      <FilterRow title="종류" options={CATEGORIES} value={selectedCategories} onChange={toggleCategory} multiple />
       <FilterRow title="가격" options={PRICES} value={price} onChange={setPrice} />
     </section>
   );
 }
 
-function FilterRow({ title, options, value, onChange }) {
+function FilterRow({ title, options, value, onChange, multiple = false }) {
   return (
     <div className="mb-4 last:mb-0">
       <div className="mb-2 text-xs font-semibold text-gray-500">{title}</div>
       <div className="flex gap-2 overflow-x-auto pb-1">
         {options.map((option) => {
-          const isSelected = value === option;
+          const isSelected = multiple
+            ? option === "전체"
+              ? value.length === 0
+              : value.includes(option)
+            : value === option;
           return (
             <button
               type="button"
